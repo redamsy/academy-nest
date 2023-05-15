@@ -1,0 +1,345 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model UserProfile {
+  userId       String        @id
+  userName     String        @unique
+  email        String        @unique
+  name         String
+  DOB          DateTime      @db.Date
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  role         Role?
+  admin       Admin?
+  manager     Manager?
+  instructor  Instructor?
+  student     Student?
+  userHashedPassword UserHashedPassword?
+  userHashedRefreshJWT UserHashedRefreshJWT?
+}
+
+model UserHashedPassword {
+  email       String      @unique
+  hashedPassword    String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userProfile UserProfile @relation(fields: [userId], references: [userId])
+  userId      String      @unique
+}
+
+model UserHashedRefreshJWT {
+  email       String      @unique
+  hashedRefreshJWT  String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userProfile UserProfile @relation(fields: [userId], references: [userId])
+  userId      String      @unique
+}
+
+model Admin {
+  userProfile UserProfile @relation(fields: [userId], references: [userId])
+  userId      String      @unique
+}
+
+model Manager {
+  userProfile UserProfile @relation(fields: [userId], references: [userId])
+  userId      String      @unique
+}
+
+model Instructor {
+  userProfile        UserProfile         @relation(fields: [userId], references: [userId])
+  userId             String              @unique
+  ratePerHour        Decimal             @db.Money
+  projects           Project[]
+  quizes             Quiz[]
+  assignments        Assignment[]
+  inpersonSchedules  InpersonSchedule[]
+  invoiceInstructors InvoiceInstructor[]
+  onlineSchedules    OnlineSchedule[]
+}
+
+model Student {
+  userProfile        UserProfile         @relation(fields: [userId], references: [userId])
+  userId             String              @unique
+  onlineStudent      OnlineStudent?
+  inpersonStudent    InpersonStudent?
+  studentProjects    StudentProject[]
+  studentQuizes      StudentQuiz[]
+  studentAssignments StudentAssignment[]
+  certificate        Certificate[]
+  discounts          Discount[]
+  invoiceStudents    InvoiceStudent[]
+}
+
+model OnlineStudent {
+  ratePerHour    Decimal          @db.Money
+  student        Student          @relation(fields: [studentId], references: [userId])
+  studentId      String           @unique
+  onlineSchedule OnlineSchedule[]
+}
+
+model InpersonStudent {
+  student                  Student                   @relation(fields: [studentId], references: [userId])
+  studentId                String                    @unique
+  InpersonStudentSchedules InpersonStudentSchedule[]
+  inpersonAtendences       InpersonAttendence[]
+}
+
+model Level {
+  id      String   @id @db.Uuid
+  name    String
+  courses Course[]
+}
+
+model Subject {
+  id      String   @id @db.Uuid
+  name    String
+  courses Course[]
+}
+
+model Course {
+  id                String             @id @db.Uuid
+  price             Decimal            @db.Money
+  numberOfHours     Int
+  deleted           Boolean            @default(false)
+  //deleted           DateTime?
+  level             Level              @relation(fields: [levelId], references: [id])
+  levelId           String             @db.Uuid
+  subject           Subject            @relation(fields: [subjectId], references: [id])
+  subjectId         String             @db.Uuid
+  inpersonSchedules InpersonSchedule[]
+  onlineSchedules   OnlineSchedule[]
+  certificate       Certificate[]
+  discounts         Discount[]
+}
+
+model Branch {
+  id    String @id @db.Uuid
+  name  String
+  rooms Room[]
+}
+
+model Room {
+  id                String             @id @db.Uuid
+  name              String
+  branch            Branch             @relation(fields: [branchId], references: [id])
+  branchId          String             @db.Uuid
+  inpersonSchedules InpersonSchedule[]
+}
+
+model Project {
+  id              String           @id @db.Uuid
+  name            String
+  description     String           @db.VarChar(2000)
+  date            DateTime         @db.Date
+  questionPdfUrl      String         @db.VarChar(2000)
+  instructor      Instructor       @relation(fields: [instructorId], references: [userId])
+  instructorId    String
+  studentProjects StudentProject[]
+}
+
+model StudentProject {
+  grade     Decimal? @db.Decimal(9, 2)
+  answerPdfUrl      String         @db.VarChar(2000)
+  student   Student @relation(fields: [studentId], references: [userId])
+  studentId String
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String  @db.Uuid
+
+  // Define a composite primary key using the studentId and projectId fields
+  @@id([studentId, projectId], name: "id")
+}
+
+model Quiz {
+  id            String        @id @db.Uuid
+  name          String
+  description   String        @db.VarChar(2000)
+  date          DateTime      @db.Date
+  questionPdfUrl      String         @db.VarChar(2000)
+  instructor    Instructor    @relation(fields: [instructorId], references: [userId])
+  instructorId  String
+  studentQuizes StudentQuiz[]
+}
+
+model StudentQuiz {
+  grade     Decimal? @db.Decimal(9, 2)
+  answerPdfUrl      String         @db.VarChar(2000)
+  student   Student @relation(fields: [studentId], references: [userId])
+  studentId String
+  quiz      Quiz    @relation(fields: [quizId], references: [id])
+  quizId    String  @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([studentId, quizId], name: "id")
+}
+
+model Assignment {
+  id                 String              @id @db.Uuid
+  name               String
+  description        String              @db.VarChar(2000)
+  date               DateTime            @db.Date
+  questionPdfUrl      String         @db.VarChar(2000)
+  instructor         Instructor          @relation(fields: [instructorId], references: [userId])
+  instructorId       String
+  studentAssignments StudentAssignment[]
+}
+
+model StudentAssignment {
+  grade        Decimal?        @db.Decimal(9, 2)
+  type     AssignmentType @default(CLASS)
+  answerPdfUrl      String         @db.VarChar(2000)
+  student      Student        @relation(fields: [studentId], references: [userId])
+  studentId    String
+  assignment   Assignment     @relation(fields: [assignmentId], references: [id])
+  assignmentId String         @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([studentId, assignmentId], name: "id")
+}
+
+model InpersonSchedule {
+  id                       String                    @id @db.Uuid
+  startTime                DateTime                  @db.Date
+  endTime                  DateTime                  @db.Date
+  dayOfWeek                DayOfWeek                 @default(MONDAY)
+  course                   Course                    @relation(fields: [courseId], references: [id])
+  courseId                 String                    @db.Uuid
+  instructor               Instructor                @relation(fields: [instructorId], references: [userId])
+  instructorId             String
+  room                     Room                      @relation(fields: [roomId], references: [id])
+  roomId                   String                    @db.Uuid
+  inpersonLectures         InpersonLecture[]
+  inpersonStudentSchedules InpersonStudentSchedule[]
+}
+
+model OnlineSchedule {
+  id              String          @id @db.Uuid
+  zoomLink        String          @db.VarChar(2000)
+  startTime       DateTime        @db.Date
+  endTime         DateTime        @db.Date
+  dayOfWeek       String
+  course          Course          @relation(fields: [courseId], references: [id])
+  courseId        String          @db.Uuid
+  instructor      Instructor      @relation(fields: [instructorId], references: [userId])
+  instructorId    String
+  onlineStudent   OnlineStudent   @relation(fields: [onlineStudentId], references: [studentId])
+  onlineStudentId String
+  onlineLectures  OnlineLecture[]
+}
+
+model InpersonStudentSchedule {
+  inpersonStudent    InpersonStudent  @relation(fields: [inpersonStudentId], references: [studentId])
+  inpersonStudentId  String
+  inpersonSchedule   InpersonSchedule @relation(fields: [inpersonScheduleId], references: [id])
+  inpersonScheduleId String           @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([inpersonStudentId, inpersonScheduleId], name: "id")
+}
+
+model InpersonLecture {
+  id                    String               @id @db.Uuid
+  dateWithoutTime             DateTime             @db.Date
+  pdfUrl                   String               @db.VarChar(2000) //notes
+  hasInstructorAttended Boolean              @default(false)
+  inpersonSchedule      InpersonSchedule     @relation(fields: [inpersonScheduleId], references: [id])
+  inpersonScheduleId    String               @db.Uuid
+  inpersonAtendences    InpersonAttendence[]
+}
+
+model OnlineLecture {
+  id                    String         @id @db.Uuid
+  dateWithoutTime           DateTime       @db.Date
+  pdfUrl                String         @db.VarChar(2000) //notes
+  hasInstructorAttended Boolean        @default(false)
+  hasStudentAttended    Boolean        @default(false)
+  onlineSchedule        OnlineSchedule @relation(fields: [onlineScheduleId], references: [id])
+  onlineScheduleId      String         @db.Uuid
+}
+
+model InpersonAttendence {
+  hasStudentAttended Boolean         @default(false)
+  inpersonStudent    InpersonStudent @relation(fields: [inpersonStudentId], references: [studentId])
+  inpersonStudentId  String
+  inpersonLecture    InpersonLecture @relation(fields: [inpersonLectureId], references: [id])
+  inpersonLectureId  String          @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([inpersonStudentId, inpersonLectureId], name: "id")
+}
+
+model Certificate {
+  pdfUrl    String  @db.VarChar(2000)
+  student   Student @relation(fields: [studentId], references: [userId])
+  studentId String
+  course    Course  @relation(fields: [courseId], references: [id])
+  courseId  String  @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([studentId, courseId], name: "id")
+}
+
+model Discount {
+  discount  Decimal @db.Decimal(9, 2)
+  student   Student @relation(fields: [studentId], references: [userId])
+  studentId String
+  course    Course  @relation(fields: [courseId], references: [id])
+  courseId  String  @db.Uuid
+
+  // Define a composite primary key using the studentId and quizId fields
+  @@id([studentId, courseId], name: "id")
+}
+
+model InvoiceStudent {
+  id             String   @id @db.Uuid
+  amount         Decimal  @db.Money
+  hasStudentPaid Boolean  @default(false)
+  pdfUrl    String  @db.VarChar(2000)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  student        Student  @relation(fields: [studentId], references: [userId])
+  studentId      String
+}
+
+model InvoiceInstructor {
+  id                   String     @id @db.Uuid
+  amount               Decimal    @db.Money
+  hasInstructorGotPaid Boolean    @default(false)
+  pdfUrl    String  @db.VarChar(2000)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  instructor           Instructor @relation(fields: [instructorId], references: [userId])
+  instructorId         String
+}
+
+enum AssignmentType {
+  CLASS
+  HOME
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum Role {
+  SYSTEM_ADMIN //Super
+  MANAGER
+  INSTRUCTOR
+  ONLINE_STUDENT
+  INPERSON_STUDENT
+}
